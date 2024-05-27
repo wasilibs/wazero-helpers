@@ -1,0 +1,6 @@
+.idea
+.vscode
+out
+dist
+testdata/buf.gen.yaml
+go.work.sum
