@@ -1,6 +1,12 @@
 package allocator
 
-import "github.com/tetratelabs/wazero/experimental"
+import (
+	"errors"
+
+	"github.com/tetratelabs/wazero/experimental"
+)
+
+var errOutOfMemory = errors.New("allocator: requested size exceeds reserved address space")
 
 // NewNonMoving returns a [experimental.MemoryAllocator] that will reserve
 // address space up to the maximum requested by a WebAssembly module during

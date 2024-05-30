@@ -24,45 +24,49 @@ const (
 	windows_PAGE_READWRITE uintptr = 0x00000004
 
 	// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.20.0:windows/syscall_windows.go;l=131
-	windows_PAGE_SIZE uint64 = 4096
+	pageSize uint64 = 4096
 )
 
-func alloc(cap, max uint64) experimental.LinearMemory {
+func alloc(_, max uint64) experimental.LinearMemory {
 	// Round up to the page size.
-	rnd := windows_PAGE_SIZE - 1
-	max = (max + rnd) &^ rnd
+	rnd := pageSize - 1
+	reserved := (max + rnd) &^ rnd
 
-	if max > math.MaxInt {
+	if reserved > math.MaxInt {
 		// This ensures uintptr(max) overflows to a large value,
 		// and windows.VirtualAlloc returns an error.
-		max = math.MaxUint64
+		reserved = math.MaxUint64
 	}
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// This does not commit memory.
-	r, _, err := procVirtualAlloc.Call(0, uintptr(max), windows_MEM_RESERVE, windows_PAGE_READWRITE)
+	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windows_MEM_RESERVE, windows_PAGE_READWRITE)
 	if err != nil {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
 
 	buf := unsafe.Slice((*byte)(unsafe.Pointer(r)), int(max))
-	return &virtualMemory{buf: buf[:0], addr: r}
+	return &virtualMemory{buf: buf[:0], addr: r, max: max}
 }
 
 // The slice covers the entire mmapped memory:
 //   - len(buf) is the already committed memory,
-//   - cap(buf) is the reserved address space.
+//   - cap(buf) is the reserved address space, which is max rounded up to a page.
 type virtualMemory struct {
 	buf  []byte
 	addr uintptr
+	max  uint64
 }
 
 func (m *virtualMemory) Reallocate(size uint64) []byte {
+	if size > m.max {
+		panic(errOutOfMemory)
+	}
+
 	com := uint64(len(m.buf))
-	res := uint64(cap(m.buf))
-	if com < size && size < res {
+	if com < size {
 		// Round up to the page size.
-		rnd := windows_PAGE_SIZE - 1
+		rnd := pageSize - 1
 		new := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
