@@ -45,7 +45,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
 
-	buf := unsafe.Slice((*byte)(unsafe.Pointer(r)), int(max))
+	buf := unsafe.Slice((*byte)(unsafe.Pointer(r)), int(reserved))
 	return &virtualMemory{buf: buf[:0], addr: r, max: max}
 }
 
