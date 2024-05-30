@@ -41,7 +41,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// This does not commit memory.
 	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windows_MEM_RESERVE, windows_PAGE_READWRITE)
-	if err != nil {
+	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
 
@@ -70,8 +70,8 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 		new := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		_, _, err := procVirtualAlloc.Call(m.addr, uintptr(new), windows_MEM_COMMIT, windows_PAGE_READWRITE)
-		if err != nil {
+		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(new), windows_MEM_COMMIT, windows_PAGE_READWRITE)
+		if r == 0 {
 			panic(fmt.Errorf("allocator_windows: failed to commit memory: %w", err))
 		}
 
@@ -84,8 +84,8 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 }
 
 func (m *virtualMemory) Free() {
-	_, _, err := procVirtualFree.Call(m.addr, 0, windows_MEM_RELEASE)
-	if err != nil {
+	r, _, err := procVirtualFree.Call(m.addr, 0, windows_MEM_RELEASE)
+	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to release memory: %w", err))
 	}
 	m.addr = 0
