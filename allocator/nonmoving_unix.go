@@ -44,7 +44,7 @@ type mmappedMemory struct {
 
 func (m *mmappedMemory) Reallocate(size uint64) []byte {
 	if size > m.max {
-		panic(errOutOfMemory)
+		panic(errInvalidReallocation)
 	}
 
 	com := uint64(len(m.buf))

@@ -51,7 +51,7 @@ func TestNonMoving(t *testing.T) {
 			require.Equal(t, 20, len(buf))
 			require.Equal(t, base, &buf[0])
 
-			require.PanicsWithError(t, errOutOfMemory.Error(), func() { mem.Reallocate(21) })
+			require.PanicsWithError(t, errInvalidReallocation.Error(), func() { mem.Reallocate(21) })
 		})
 	}
 }
