@@ -46,7 +46,7 @@ func alloc(cap, max uint64) experimental.LinearMemory {
 	}
 
 	buf := unsafe.Slice((*byte)(unsafe.Pointer(r)), int(max))
-	return &virtualMemory{buf: buf[:cap], addr: r}
+	return &virtualMemory{buf: buf[:0], addr: r}
 }
 
 // The slice covers the entire mmapped memory:

@@ -3,6 +3,7 @@
 package allocator
 
 import (
+	"fmt"
 	"math"
 	"syscall"
 
@@ -24,7 +25,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 	// A protected, private, anonymous mapping should not commit memory.
 	b, err := syscall.Mmap(-1, 0, int(max), syscall.PROT_NONE, syscall.MAP_PRIVATE|syscall.MAP_ANON)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("allocator_unix: failed to reserve memory: %w", err))
 	}
 	return &mmappedMemory{buf: b[:0]}
 }
@@ -47,7 +48,7 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 		// Commit additional memory up to new bytes.
 		err := syscall.Mprotect(m.buf[com:new], syscall.PROT_READ|syscall.PROT_WRITE)
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("allocator_unix: failed to commit memory: %w", err))
 		}
 
 		// Update committed memory.
@@ -61,7 +62,7 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 func (m *mmappedMemory) Free() {
 	err := syscall.Munmap(m.buf[:cap(m.buf)])
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("allocator_unix: failed to release memory: %w", err))
 	}
 	m.buf = nil
 }
