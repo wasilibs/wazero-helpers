@@ -1,15 +1,14 @@
 package main
 
 import (
+	"flag"
+
+	"github.com/curioswitch/go-build"
 	"github.com/goyek/x/boot"
-	"github.com/wasilibs/tools/tasks"
 )
 
 func main() {
-	tasks.Define(tasks.Params{
-		LibraryName: "protoc",
-		LibraryRepo: "protocolbuffers/protobuf",
-		GoReleaser:  true,
-	})
+	_ = flag.Lookup("v").Value.Set("true") // Force verbose output
+	build.DefineTasks()
 	boot.Main()
 }
