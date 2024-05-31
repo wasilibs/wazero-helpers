@@ -16,7 +16,7 @@ func TestNonMoving(t *testing.T) {
 		{
 			name: "native",
 			mem:  NewNonMoving().Allocate(10, 20),
-			cap:  int(pageSize), //nolint:unconvert // depending on platform, not an int
+			cap:  pageSize,
 		},
 		// The non-slice allocators are available on all normal platforms. Rather than requiring qemu to test slice
 		// allocator, we just go ahead and test it in addition to the native one. On platforms other than unix/windows,

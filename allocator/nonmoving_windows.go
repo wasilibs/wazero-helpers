@@ -24,14 +24,14 @@ const (
 	windows_PAGE_READWRITE uintptr = 0x00000004
 
 	// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.20.0:windows/syscall_windows.go;l=131
-	pageSize uint64 = 4096
+	pageSize = 4096
 )
 
 func alloc(_, max uint64) experimental.LinearMemory {
 	// Round up to the page size because recommitting must be page-aligned.
 	// In practice, the WebAssembly page size should be a multiple of the system
 	// page size on most if not all platforms and rounding will never happen.
-	rnd := pageSize - 1
+	rnd := uint64(pageSize) - 1
 	reserved := (max + rnd) &^ rnd
 
 	if reserved > math.MaxInt {
@@ -68,7 +68,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	com := uint64(len(m.buf))
 	if com < size {
 		// Round up to the page size.
-		rnd := pageSize - 1
+		rnd := uint64(pageSize) - 1
 		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
