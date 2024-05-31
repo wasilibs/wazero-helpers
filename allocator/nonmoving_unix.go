@@ -10,37 +10,45 @@ import (
 	"github.com/tetratelabs/wazero/experimental"
 )
 
-func alloc(_, max uint64) experimental.LinearMemory {
-	// Round up to the page size.
-	rnd := uint64(syscall.Getpagesize() - 1)
-	max = (max + rnd) &^ rnd
+var pageSize = syscall.Getpagesize()
 
-	if max > math.MaxInt {
+func alloc(_, max uint64) experimental.LinearMemory {
+	// Round up to the page size because recommitting must be page-aligned.
+	// In practice, the WebAssembly page size should be a multiple of the system
+	// page size on most if not all platforms and rounding will never happen.
+	rnd := uint64(pageSize - 1)
+	reserved := (max + rnd) &^ rnd
+
+	if reserved > math.MaxInt {
 		// This ensures int(max) overflows to a negative value,
 		// and syscall.Mmap returns EINVAL.
-		max = math.MaxUint64
+		reserved = math.MaxUint64
 	}
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// A protected, private, anonymous mapping should not commit memory.
-	b, err := syscall.Mmap(-1, 0, int(max), syscall.PROT_NONE, syscall.MAP_PRIVATE|syscall.MAP_ANON)
+	b, err := syscall.Mmap(-1, 0, int(reserved), syscall.PROT_NONE, syscall.MAP_PRIVATE|syscall.MAP_ANON)
 	if err != nil {
 		panic(fmt.Errorf("allocator_unix: failed to reserve memory: %w", err))
 	}
-	return &mmappedMemory{buf: b[:0]}
+	return &mmappedMemory{buf: b[:0], max: max}
 }
 
 // The slice covers the entire mmapped memory:
 //   - len(buf) is the already committed memory,
-//   - cap(buf) is the reserved address space.
+//   - cap(buf) is the reserved address space, which is max rounded up to a page.
 type mmappedMemory struct {
 	buf []byte
+	max uint64
 }
 
 func (m *mmappedMemory) Reallocate(size uint64) []byte {
+	if size > m.max {
+		panic(errInvalidReallocation)
+	}
+
 	com := uint64(len(m.buf))
-	res := uint64(cap(m.buf))
-	if com < size && size < res {
+	if com < size {
 		// Round up to the page size.
 		rnd := uint64(syscall.Getpagesize() - 1)
 		new := (size + rnd) &^ rnd
