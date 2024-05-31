@@ -28,7 +28,9 @@ const (
 )
 
 func alloc(_, max uint64) experimental.LinearMemory {
-	// Round up to the page size.
+	// Round up to the page size because recommitting must be page-aligned.
+	// In practice, the WebAssembly page size should be a multiple of the system
+	// page size on most if not all platforms and rounding will never happen.
 	rnd := pageSize - 1
 	reserved := (max + rnd) &^ rnd
 
@@ -67,16 +69,16 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	if com < size {
 		// Round up to the page size.
 		rnd := pageSize - 1
-		new := (size + rnd) &^ rnd
+		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(new), windows_MEM_COMMIT, windows_PAGE_READWRITE)
+		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(newCap), windows_MEM_COMMIT, windows_PAGE_READWRITE)
 		if r == 0 {
 			panic(fmt.Errorf("allocator_windows: failed to commit memory: %w", err))
 		}
 
 		// Update committed memory.
-		m.buf = m.buf[:new]
+		m.buf = m.buf[:newCap]
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
