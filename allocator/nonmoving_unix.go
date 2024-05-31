@@ -51,16 +51,16 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 	if com < size {
 		// Round up to the page size.
 		rnd := uint64(syscall.Getpagesize() - 1)
-		new := (size + rnd) &^ rnd
+		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		err := syscall.Mprotect(m.buf[com:new], syscall.PROT_READ|syscall.PROT_WRITE)
+		err := syscall.Mprotect(m.buf[com:newCap], syscall.PROT_READ|syscall.PROT_WRITE)
 		if err != nil {
 			panic(fmt.Errorf("allocator_unix: failed to commit memory: %w", err))
 		}
 
 		// Update committed memory.
-		m.buf = m.buf[:new]
+		m.buf = m.buf[:newCap]
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.

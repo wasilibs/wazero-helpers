@@ -18,18 +18,20 @@ var (
 )
 
 const (
-	windows_MEM_COMMIT     uintptr = 0x00001000
-	windows_MEM_RESERVE    uintptr = 0x00002000
-	windows_MEM_RELEASE    uintptr = 0x00008000
-	windows_PAGE_READWRITE uintptr = 0x00000004
+	windowsMemCommit     uintptr = 0x00001000
+	windowsMemReserve    uintptr = 0x00002000
+	windowsMemRelease    uintptr = 0x00008000
+	windowsPageReadwrite uintptr = 0x00000004
 
 	// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.20.0:windows/syscall_windows.go;l=131
-	pageSize uint64 = 4096
+	pageSize = 4096
 )
 
 func alloc(_, max uint64) experimental.LinearMemory {
-	// Round up to the page size.
-	rnd := pageSize - 1
+	// Round up to the page size because recommitting must be page-aligned.
+	// In practice, the WebAssembly page size should be a multiple of the system
+	// page size on most if not all platforms and rounding will never happen.
+	rnd := uint64(pageSize) - 1
 	reserved := (max + rnd) &^ rnd
 
 	if reserved > math.MaxInt {
@@ -40,7 +42,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// This does not commit memory.
-	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windows_MEM_RESERVE, windows_PAGE_READWRITE)
+	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windowsMemReserve, windowsPageReadwrite)
 	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
@@ -66,17 +68,17 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	com := uint64(len(m.buf))
 	if com < size {
 		// Round up to the page size.
-		rnd := pageSize - 1
-		new := (size + rnd) &^ rnd
+		rnd := uint64(pageSize) - 1
+		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(new), windows_MEM_COMMIT, windows_PAGE_READWRITE)
+		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(newCap), windowsMemCommit, windowsPageReadwrite)
 		if r == 0 {
 			panic(fmt.Errorf("allocator_windows: failed to commit memory: %w", err))
 		}
 
 		// Update committed memory.
-		m.buf = m.buf[:new]
+		m.buf = m.buf[:newCap]
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
@@ -84,7 +86,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 }
 
 func (m *virtualMemory) Free() {
-	r, _, err := procVirtualFree.Call(m.addr, 0, windows_MEM_RELEASE)
+	r, _, err := procVirtualFree.Call(m.addr, 0, windowsMemRelease)
 	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to release memory: %w", err))
 	}

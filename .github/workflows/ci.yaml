@@ -28,4 +28,4 @@ jobs:
           cache-dependency-path: "**/go.sum"
 
       - name: run tests and lints
-        run: go run ./build -v check
+        run: go run ./build check
