@@ -18,10 +18,10 @@ var (
 )
 
 const (
-	windows_MEM_COMMIT     uintptr = 0x00001000
-	windows_MEM_RESERVE    uintptr = 0x00002000
-	windows_MEM_RELEASE    uintptr = 0x00008000
-	windows_PAGE_READWRITE uintptr = 0x00000004
+	windowsMemCommit     uintptr = 0x00001000
+	windowsMemReserve    uintptr = 0x00002000
+	windowsMemRelease    uintptr = 0x00008000
+	windowsPageReadwrite uintptr = 0x00000004
 
 	// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.20.0:windows/syscall_windows.go;l=131
 	pageSize = 4096
@@ -42,7 +42,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// This does not commit memory.
-	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windows_MEM_RESERVE, windows_PAGE_READWRITE)
+	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windowsMemReserve, windowsPageReadwrite)
 	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
@@ -72,7 +72,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(newCap), windows_MEM_COMMIT, windows_PAGE_READWRITE)
+		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(newCap), windowsMemCommit, windowsPageReadwrite)
 		if r == 0 {
 			panic(fmt.Errorf("allocator_windows: failed to commit memory: %w", err))
 		}
@@ -86,7 +86,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 }
 
 func (m *virtualMemory) Free() {
-	r, _, err := procVirtualFree.Call(m.addr, 0, windows_MEM_RELEASE)
+	r, _, err := procVirtualFree.Call(m.addr, 0, windowsMemRelease)
 	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to release memory: %w", err))
 	}
