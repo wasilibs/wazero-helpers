@@ -5,6 +5,7 @@ package allocator
 import (
 	"fmt"
 	"math"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -58,12 +59,21 @@ type virtualMemory struct {
 	buf  []byte
 	addr uintptr
 	max  uint64
+
+	// Any reasonable Wasm implementation will take a lock before calling Grow, but this
+	// is invisible to Go's race detector so it can still detect raciness when we updated
+	// buf. We go ahead and take a lock when mutating since the performance effect should
+	// be negligible in practice and it will help the race detector confirm the safety.
+	mu sync.Mutex
 }
 
 func (m *virtualMemory) Reallocate(size uint64) []byte {
 	if size > m.max {
 		panic(errInvalidReallocation)
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	com := uint64(len(m.buf))
 	if com < size {
@@ -86,6 +96,9 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 }
 
 func (m *virtualMemory) Free() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	r, _, err := procVirtualFree.Call(m.addr, 0, windowsMemRelease)
 	if r == 0 {
 		panic(fmt.Errorf("allocator_windows: failed to release memory: %w", err))
