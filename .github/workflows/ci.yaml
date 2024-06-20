@@ -29,3 +29,30 @@ jobs:
 
       - name: run tests and lints
         run: go run ./build check
+
+  test-bsd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+      - name: Build
+        run: go test -c ./...
+        env:
+          GOOS: freebsd
+
+      - name: Test
+        uses: cross-platform-actions/action@v0.24.0
+        with:
+          operating_system: freebsd
+          version: "14.0"
+          shell: bash
+          # It seems unlikely to have OS-dependent code outside the allocator
+          # package even when adding new features so simply specify it here for
+          # now. We will need to iterate over packages if we want to run more
+          # in the future.
+          run: ./allocator.test -test.v -test.short
+          sync_files: runner-to-vm

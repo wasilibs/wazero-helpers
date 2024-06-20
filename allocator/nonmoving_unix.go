@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"syscall"
 
 	"github.com/tetratelabs/wazero/experimental"
+	"golang.org/x/sys/unix"
 )
 
-var pageSize = syscall.Getpagesize()
+var pageSize = unix.Getpagesize()
 
 func alloc(_, max uint64) experimental.LinearMemory {
 	// Round up to the page size because recommitting must be page-aligned.
@@ -22,13 +22,13 @@ func alloc(_, max uint64) experimental.LinearMemory {
 
 	if reserved > math.MaxInt {
 		// This ensures int(max) overflows to a negative value,
-		// and syscall.Mmap returns EINVAL.
+		// and unix.Mmap returns EINVAL.
 		reserved = math.MaxUint64
 	}
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// A protected, private, anonymous mapping should not commit memory.
-	b, err := syscall.Mmap(-1, 0, int(reserved), syscall.PROT_NONE, syscall.MAP_PRIVATE|syscall.MAP_ANON)
+	b, err := unix.Mmap(-1, 0, int(reserved), unix.PROT_NONE, unix.MAP_PRIVATE|unix.MAP_ANON)
 	if err != nil {
 		panic(fmt.Errorf("allocator_unix: failed to reserve memory: %w", err))
 	}
@@ -60,11 +60,11 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 	com := uint64(len(m.buf))
 	if com < size {
 		// Round up to the page size.
-		rnd := uint64(syscall.Getpagesize() - 1)
+		rnd := uint64(unix.Getpagesize() - 1)
 		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		err := syscall.Mprotect(m.buf[com:newCap], syscall.PROT_READ|syscall.PROT_WRITE)
+		err := unix.Mprotect(m.buf[com:newCap], unix.PROT_READ|unix.PROT_WRITE)
 		if err != nil {
 			panic(fmt.Errorf("allocator_unix: failed to commit memory: %w", err))
 		}
@@ -81,7 +81,7 @@ func (m *mmappedMemory) Free() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	err := syscall.Munmap(m.buf[:cap(m.buf)])
+	err := unix.Munmap(m.buf[:cap(m.buf)])
 	if err != nil {
 		panic(fmt.Errorf("allocator_unix: failed to release memory: %w", err))
 	}

@@ -6,27 +6,13 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"syscall"
 	"unsafe"
 
 	"github.com/tetratelabs/wazero/experimental"
+	"golang.org/x/sys/windows"
 )
 
-var (
-	kernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procVirtualAlloc = kernel32.NewProc("VirtualAlloc")
-	procVirtualFree  = kernel32.NewProc("VirtualFree")
-)
-
-const (
-	windowsMemCommit     uintptr = 0x00001000
-	windowsMemReserve    uintptr = 0x00002000
-	windowsMemRelease    uintptr = 0x00008000
-	windowsPageReadwrite uintptr = 0x00000004
-
-	// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.20.0:windows/syscall_windows.go;l=131
-	pageSize = 4096
-)
+var pageSize = windows.Getpagesize()
 
 func alloc(_, max uint64) experimental.LinearMemory {
 	// Round up to the page size because recommitting must be page-aligned.
@@ -43,8 +29,8 @@ func alloc(_, max uint64) experimental.LinearMemory {
 
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// This does not commit memory.
-	r, _, err := procVirtualAlloc.Call(0, uintptr(reserved), windowsMemReserve, windowsPageReadwrite)
-	if r == 0 {
+	r, err := windows.VirtualAlloc(0, uintptr(reserved), windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
 		panic(fmt.Errorf("allocator_windows: failed to reserve memory: %w", err))
 	}
 
@@ -82,8 +68,8 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		r, _, err := procVirtualAlloc.Call(m.addr, uintptr(newCap), windowsMemCommit, windowsPageReadwrite)
-		if r == 0 {
+		_, err := windows.VirtualAlloc(m.addr, uintptr(newCap), windows.MEM_COMMIT, windows.PAGE_READWRITE)
+		if err != nil {
 			panic(fmt.Errorf("allocator_windows: failed to commit memory: %w", err))
 		}
 
@@ -99,8 +85,8 @@ func (m *virtualMemory) Free() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	r, _, err := procVirtualFree.Call(m.addr, 0, windowsMemRelease)
-	if r == 0 {
+	err := windows.VirtualFree(m.addr, 0, windows.MEM_RELEASE)
+	if err != nil {
 		panic(fmt.Errorf("allocator_windows: failed to release memory: %w", err))
 	}
 	m.addr = 0
