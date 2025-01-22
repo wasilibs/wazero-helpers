@@ -11,7 +11,7 @@ func TestNonMoving(t *testing.T) {
 	tests := []struct {
 		name string
 		mem  experimental.LinearMemory
-		cap  int
+		cap  uint64
 	}{
 		{
 			name: "native",
@@ -36,7 +36,7 @@ func TestNonMoving(t *testing.T) {
 
 			buf := mem.Reallocate(5)
 			require.Len(t, buf, 5)
-			require.Equal(t, tc.cap, cap(buf))
+			require.EqualValues(t, tc.cap, cap(buf))
 			base := &buf[0]
 
 			buf = mem.Reallocate(5)
@@ -51,7 +51,7 @@ func TestNonMoving(t *testing.T) {
 			require.Len(t, buf, 20)
 			require.Equal(t, base, &buf[0])
 
-			require.PanicsWithError(t, errInvalidReallocation.Error(), func() { mem.Reallocate(21) })
+			require.Nil(t, mem.Reallocate(21))
 		})
 	}
 }
