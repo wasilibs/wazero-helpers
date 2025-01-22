@@ -70,7 +70,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
-	if size < uint64(len(m.buf)) {
+	if size > uint64(len(m.buf)) {
 		size = uint64(len(m.buf))
 	}
 	return m.buf[:size:len(m.buf)]
