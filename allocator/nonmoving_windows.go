@@ -57,16 +57,16 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	if com < size && size <= res {
 		// Round up to the page size.
 		rnd := uint64(windows.Getpagesize() - 1)
-		new := (size + rnd) &^ rnd
+		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		_, err := windows.VirtualAlloc(m.addr, uintptr(new), windows.MEM_COMMIT, windows.PAGE_READWRITE)
+		_, err := windows.VirtualAlloc(m.addr, uintptr(newCap), windows.MEM_COMMIT, windows.PAGE_READWRITE)
 		if err != nil {
 			return nil
 		}
 
 		// Update committed memory.
-		m.buf = m.buf[:new]
+		m.buf = m.buf[:newCap]
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.

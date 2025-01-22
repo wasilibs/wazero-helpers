@@ -53,16 +53,16 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 	if com < size && size <= res {
 		// Round up to the page size.
 		rnd := pageSize - 1
-		newSz := (size + rnd) &^ rnd
+		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
-		err := unix.Mprotect(m.buf[com:newSz], unix.PROT_READ|unix.PROT_WRITE)
+		err := unix.Mprotect(m.buf[com:newCap], unix.PROT_READ|unix.PROT_WRITE)
 		if err != nil {
 			return nil
 		}
 
 		// Update committed memory.
-		m.buf = m.buf[:newSz]
+		m.buf = m.buf[:newCap]
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
