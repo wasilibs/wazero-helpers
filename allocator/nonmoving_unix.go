@@ -31,7 +31,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 	if err != nil {
 		panic(fmt.Errorf("allocator_unix: failed to reserve memory: %w", err))
 	}
-	return &mmappedMemory{buf: b[:0], max: max}
+	return &mmappedMemory{buf: b[:0]}
 }
 
 // The slice covers the entire mmapped memory:
@@ -39,14 +39,9 @@ func alloc(_, max uint64) experimental.LinearMemory {
 //   - cap(buf) is the reserved address space, which is max rounded up to a page.
 type mmappedMemory struct {
 	buf []byte
-	max uint64
 }
 
 func (m *mmappedMemory) Reallocate(size uint64) []byte {
-	if size > m.max {
-		return nil
-	}
-
 	com := uint64(len(m.buf))
 	res := uint64(cap(m.buf))
 
@@ -66,9 +61,6 @@ func (m *mmappedMemory) Reallocate(size uint64) []byte {
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
-	if size > uint64(len(m.buf)) {
-		size = uint64(len(m.buf))
-	}
 	return m.buf[:size:len(m.buf)]
 }
 

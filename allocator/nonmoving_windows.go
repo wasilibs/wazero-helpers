@@ -34,7 +34,7 @@ func alloc(_, max uint64) experimental.LinearMemory {
 	}
 
 	buf := unsafe.Slice((*byte)(unsafe.Pointer(r)), int(res))
-	return &virtualMemory{buf: buf[:0], addr: r, max: max}
+	return &virtualMemory{buf: buf[:0], addr: r}
 }
 
 // The slice covers the entire mmapped memory:
@@ -43,14 +43,9 @@ func alloc(_, max uint64) experimental.LinearMemory {
 type virtualMemory struct {
 	buf  []byte
 	addr uintptr
-	max  uint64
 }
 
 func (m *virtualMemory) Reallocate(size uint64) []byte {
-	if size > m.max {
-		return nil
-	}
-
 	com := uint64(len(m.buf))
 	res := uint64(cap(m.buf))
 
@@ -70,9 +65,6 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 	}
 	// Limit returned capacity because bytes beyond
 	// len(m.buf) have not yet been committed.
-	if size > uint64(len(m.buf)) {
-		size = uint64(len(m.buf))
-	}
 	return m.buf[:size:len(m.buf)]
 }
 

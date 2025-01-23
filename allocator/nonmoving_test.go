@@ -50,8 +50,6 @@ func TestNonMoving(t *testing.T) {
 			buf = mem.Reallocate(20)
 			require.Len(t, buf, 20)
 			require.Equal(t, base, &buf[0])
-
-			require.Nil(t, mem.Reallocate(21))
 		})
 	}
 }
