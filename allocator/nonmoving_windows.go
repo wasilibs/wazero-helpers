@@ -51,7 +51,7 @@ func (m *virtualMemory) Reallocate(size uint64) []byte {
 
 	if com < size && size <= res {
 		// Round up to the page size.
-		rnd := uint64(windows.Getpagesize() - 1)
+		rnd := pageSize - 1
 		newCap := (size + rnd) &^ rnd
 
 		// Commit additional memory up to new bytes.
